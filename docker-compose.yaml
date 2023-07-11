@@ -3,6 +3,10 @@ version: '3'
 services:
 
   prometheus:
+    # prometheus http://localhost:9090/targets
+    # micrometer
+    #   json http://0.0.0.0:9000/q/metrics/json
+    #   prometheus http://0.0.0.0:9000/q/metrics/prometheus
     image: prom/prometheus
     ports:
       - 9090:9090
