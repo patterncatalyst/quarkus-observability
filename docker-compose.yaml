@@ -2,6 +2,15 @@ version: '3'
 
 services:
 
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./configuration/prometheus.yml:/etc/prometheus/prometheus.yml:Z
+    networks:
+      - my-network
+
   jaeger:
     # jaeger ui http://localhost:16686
     image: jaegertracing/all-in-one:latest
