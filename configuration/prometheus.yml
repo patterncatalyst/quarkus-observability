@@ -28,7 +28,6 @@ scrape_configs:
     static_configs:
       - targets: ['docker.for.mac.localhost:9090']
 
-  # this is the configuration to poll metrics from EAP 7.3
   # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
   - job_name: 'quarkus'
     scrape_interval: 2s
