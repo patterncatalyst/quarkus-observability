@@ -1,4 +1,5 @@
 package org.acme.observability;
+import io.micrometer.core.annotation.Timed;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -25,6 +26,7 @@ public class MovieResource {
 
     @POST
     @WithSpan("MovieResource.send")
+    @Timed(value = "MovieResource.send")
     public Response send(MovieEntity movieEntity) {
         producer.sendMovieToKafka(movieEntity);
         // Return an 202 - Accepted response.
