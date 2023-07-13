@@ -17,9 +17,6 @@ public class MovieConsumer {
     @Inject
     Mutiny.SessionFactory sf;
 
-    @Inject
-    MovieRepository movieRepository;
-
     @Incoming("movies-in")
     public Uni<Void> receive(Record<Integer, String> record) {
 

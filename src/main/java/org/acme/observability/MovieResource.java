@@ -13,10 +13,17 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.WebApplicationException;
+import org.eclipse.microprofile.faulttolerance.Fallback;
+import org.eclipse.microprofile.faulttolerance.FallbackHandler;
+import org.eclipse.microprofile.faulttolerance.Retry;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.hibernate.reactive.mutiny.Mutiny;
 import org.jboss.logging.Logger;
 
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Path("/")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -25,12 +32,19 @@ public class MovieResource {
 
     private static final Logger LOGGER = Logger.getLogger(MovieResource.class);
 
+    private AtomicLong counter = new AtomicLong(0);
+
     @Inject
     Mutiny.SessionFactory sf;
 
     @Inject
     MovieProducer producer;
 
+    // Metrics with MicroMeter
+    //     Timed
+    //     Counted
+    // Tracing Span
+    //     Span and tracing
     @POST
     @Path("/movies")
     @WithSpan("MovieResource.send")
@@ -42,19 +56,48 @@ public class MovieResource {
         return Response.accepted().build();
     }
 
+    // Fault Tolerance
+    //     Retry
+    //     Fallback
     @GET
     @Path("/movies/{id}")
+    @WithSpan("MoviesResource.getById")
+    @Retry(retryOn = WebApplicationException.class, maxRetries = 3, delay = 2000)
+    @Fallback(fallbackMethod = "MovieFallback") // Can also take a class
     public Uni<MovieEntity> getById(Integer id) {
+
+        final Long invocationNumber = counter.getAndIncrement();
+
+        maybeFail(String.format("MoviesResource#getById() invocation #%d failed", invocationNumber));
+
+
+        LOGGER.infof("MoviesResource#getById() invocation #%d succeeded", invocationNumber);
         return sf.withTransaction((s,t) -> s.find(MovieEntity.class, id));
     }
 
+    // Fault Tolerance
+    //     Timeout
     @GET
     @Path("/movies")
-    public Uni<List<MovieEntity>> get() {
-        return sf.withTransaction((s,t) -> s
-                .createNamedQuery("Movies.findAll", MovieEntity.class)
-                .getResultList()
-        );
+    @WithSpan("MoviesResource.getAll")
+    @Timeout(250)
+    public Uni<List<MovieEntity>> getAll() {
+        long started = System.currentTimeMillis();
+        final long invocationNumber = counter.getAndIncrement();
+
+        try {
+            randomDelay();
+            LOGGER.infof("MoviesResource#getAll() invocation #%d succeeded", invocationNumber);
+            return sf.withTransaction((s,t) -> s
+                    .createNamedQuery("Movies.findAll", MovieEntity.class)
+                    .getResultList()
+            );
+        } catch (InterruptedException ex) {
+            LOGGER.infof("MoviesResource#getById() invocation #%d timed out after %d ms",
+                    invocationNumber, System.currentTimeMillis() - started);
+            return null;
+        }
+        
     }
 
     @PUT
@@ -82,5 +125,20 @@ public class MovieResource {
                         // If entity exists then delete it
                         .call(s::remove))
                 .replaceWith(Response.ok().status(NO_CONTENT)::build);
+    }
+
+    public String MovieFallback(final Integer id) {
+        return String.format("Unable to get Movie %d: ", id);
+    }
+
+    private void maybeFail(String failureLogMessage) {
+        if (new Random().nextBoolean()) {
+            LOGGER.error(failureLogMessage);
+            throw new WebApplicationException("Resource failure.");
+        }
+    }
+
+    private void randomDelay() throws InterruptedException {
+        Thread.sleep(new Random().nextInt(500));
     }
 }
