@@ -97,7 +97,7 @@ public class MovieResource {
                     invocationNumber, System.currentTimeMillis() - started);
             return null;
         }
-        
+
     }
 
     @PUT
@@ -127,8 +127,9 @@ public class MovieResource {
                 .replaceWith(Response.ok().status(NO_CONTENT)::build);
     }
 
-    public String MovieFallback(final Integer id) {
-        return String.format("Unable to get Movie %d: ", id);
+    public Uni<MovieEntity> MovieFallback(final Integer id) {
+        LOGGER.infof("Unable to get Movie %d: ", id);
+        return null;
     }
 
     private void maybeFail(String failureLogMessage) {
